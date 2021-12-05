@@ -1,9 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: > Application and Data Layer CloudFomration Deployment Template 
-  Created using AWS SAM
+  Created using AWS Serverless Application Model(SAM)
     Creates, API Gateway, Lambda, IAM Policies, Cloudwatch Logs and Notifications
-
 
 # All parameters are Stored in AWS SSM Paramater Store
 # Secrets are encrypted using Keys
