@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: > Application and Data Layer CloudFomration Deployment Template 
+  Created using AWS SAM
+    Creates, API Gateway, Lambda, IAM Policies, Cloudwatch Logs and Notifications
+
+
+# All parameters are Stored in AWS SSM Paramater Store
+# Secrets are encrypted using Keys
+Parameters:
+  UserPoolArn:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: 'user-pool-arn'
+  ProductServiceUrl:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: 'products-api-url'
+  AllowedOrigin:
+    Type: 'String'
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 512
+    Tracing: Active
+    AutoPublishAlias: live
+    Runtime: python3.8
+    Layers:
+      - !Sub arn:aws:lambda:${AWS::Region}:<account>:layer:AWSLambdaPowertoolsPython:3
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref cartTable
+        LOG_LEVEL: "INFO"
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        POWERTOOLS_SERVICE_NAME: cart
+        POWERTOOLS_METRICS_NAMESPACE: ecommerce-app
+  Api:
+    EndpointConfiguration: REGIONAL
+    TracingEnabled: true
+    OpenApiVersion: '2.0'
+    Cors:
+      AllowMethods: "'OPTIONS,POST,GET,PUT'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowCredentials: true
+      AllowOrigin: !Sub "'${AllowedOrigin}'"
+
+Resources:
+  UtilsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: ./layers/
+      CompatibleRuntimes:
+        - python3.8
+    Metadata:
+      BuildMethod: python3.8
+
+  # Create API Gateway with Authorization
+  CartApi:
+    Type: AWS::Serverless::Api
+    DependsOn:
+      - ApiGWAccount
+    Properties:
+      StageName: Prod
+      MethodSettings:
+        - DataTraceEnabled: True
+          MetricsEnabled: True
+          ResourcePath: "/*"
+          HttpMethod: "*"
+          LoggingLevel: INFO
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Ref UserPoolArn
+            Identity: # OPTIONAL
+              Header: Authorization # OPTIONAL; Default: 'Authorization'
+
+  # Create IAM role for Serverless Lambda Function
+  ListCartRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+            - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+
+  # Create Aurora Serverless MySQL Cluster
+  # DB Paramaters are defined in DBSubnet Group
+  RDSCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: 
+        Ref: ssm.parameter.DBUsername
+      MasterUserPassword: 
+        Ref: ssm.parameter.DBPassword
+      DatabaseName: ssm.parameter.RANDOMNAME
+      Engine: aurora
+      EngineMode: serverless
+      ScalingConfiguration:
+        AutoPause: true
+        MaxCapacity: 16
+        MinCapacity: 2
+        SecondsUntilAutoPause: 300
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+
+  LambdaLoggingPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: LambdaXRayPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action: [
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+              ]
+            Resource: "*"
+      Roles:
+        - !Ref ListCartRole
+        - !Ref AddToCartRole
+
+  # IAM role for Lambda to write/read data from DB
+  RDSAuroraReadPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: AuroraServerlessReadPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action: [
+              "rds:read*",
+              "rds-db:connect",
+	          "rds:write",
+              ]
+            Resource:
+              - !GetAtt AuroracartTable.Arn
+      Roles:
+        - !Ref ListCartRole
+        - !Ref AddToCartRole
+
+  # Business Logic for lambda function
+  # lambda_handler
+  ListCartFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - LambdaLoggingPolicy
+    Properties:
+      CodeUri: application/
+      Handler: app.lambda_handler
+      Role: !GetAtt ListCartRole.Arn
+      Layers:
+        - !Ref UtilsLayer
+      Environment:
+        Variables:
+          USERPOOL_ID: !Ref UserPoolId
+      Events:
+        ListCart:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CartApi
+            Path: /cart
+            Method: get
+
+  # IAM role for Logs and Metrics
+  APIGWCloudWatchRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - >-
+          arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  ApiGWAccount:
+    Type: 'AWS::ApiGateway::Account'
+    Properties:
+      CloudWatchRoleArn: !GetAtt APIGWCloudWatchRole.Arn
+
+  
+  CartApiUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      Name: /serverless-cart-demo/cart/cart-api-url
+      Value: !Sub "https://${CartApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+
+Outputs:
+  CartApi:
+    Description: "API Gateway endpoint URL for Prod stage for Cart Service"
+    Value: !Sub "https://${CartApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
