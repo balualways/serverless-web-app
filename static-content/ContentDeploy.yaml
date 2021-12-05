@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Static website Deployment Template. Create Cloudfront, Route 53 DNS and S3
+Description: Cloudformation to Deploy Static website contents. Create Cloudfront Distribution, Route 53 DNS and S3 Data Store with required roles and certificates
   
 
 Parameters:
