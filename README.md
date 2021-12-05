@@ -7,15 +7,6 @@ We are leveraging AWS Serverless technologioes to implement our 3-tier applicati
 
 ![Alt text](static-content/Screen%20Shot%202021-12-05%20at%2012.58.20%20AM.png?raw=true "Title")
 
-![](https://pandao.github.io/editor.md/images/logos/editormd-logo-180x180.png)
-
-![](https://img.shields.io/github/stars/pandao/editor.md.svg) ![](https://img.shields.io/github/forks/pandao/editor.md.svg) ![](https://img.shields.io/github/tag/pandao/editor.md.svg) ![](https://img.shields.io/github/release/pandao/editor.md.svg) ![](https://img.shields.io/github/issues/pandao/editor.md.svg) 
-
-
-
-
-
-
 
 
 This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
@@ -41,6 +32,8 @@ index.html: Content
 `aws cloudformation deploy --template-file static-content/content-deploy.yaml --stack-name mdemo-app-static --parameter-overrides Key1=Value1 Key2=Value2 --tags Key1=Value1 Key2=Value2`
 
 #### Deploy Dynamic Contents
+
+![Alt text](static-content/Screen%20Shot%202021-12-05%20at%2012.58.37%20AM.png?raw=true "Title")
 
 Web, Application and Data Layer
 
@@ -68,30 +61,6 @@ The Serverless Application Model Command Line Interface (SAM CLI) is an abstract
     [*] Test Function in the Cloud: sam sync --stack-name {stack-name} --watch
     
 
-
-> `$ tree demo-web-app/`
-
-demo-web-app/
-├── README.md
-├── __init__.py
-├── events
-│   └── event.json
-├── hello_world
-│   ├── __init__.py
-│   ├── app.py
-│   └── requirements.txt
-├── template.yaml
-└── tests
-    ├── __init__.py
-    ├── integration
-    │   ├── __init__.py
-    │   └── test_api_gateway.py
-    ├── requirements.txt
-    └── unit
-        ├── __init__.py
-        └── test_handler.py
-
-5 directories, 13 files
 
 
 **Note**: Because the project is created with the default AWS sample Hello World application, customers need to edit the app.py and template.yaml files to add content for their use case.
