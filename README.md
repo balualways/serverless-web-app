@@ -5,6 +5,7 @@ We are leveraging AWS Serverless technologioes to implement our 3-tier applicati
 
 ### Architecture
 
+![Alt text](static-content/Screen%20Shot%202021-12-05%20at%2012.58.20%20AM.png?raw=true "Title")
 
 ![](https://pandao.github.io/editor.md/images/logos/editormd-logo-180x180.png)
 
